@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Meeting Status Core</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700&family=Rajdhani:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{color-scheme:dark;--bg:#030a14;--pn:rgba(7,22,38,.78);--cy:#27e6ff;--bl:#2f7bff;--am:#ffb02e;--tx:#cfefff;--mut:#7fa6bd;--ln:rgba(39,230,255,.3);--er:#ff5c7a;--ok:#3dffb0}
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;color:var(--tx);font:500 15px/1.5 Rajdhani,"Segoe UI",Arial,sans-serif;background:radial-gradient(1200px 600px at 50% -10%,#0b2a4a 0,transparent 60%),var(--bg);background-attachment:fixed}
+body::before{content:"";position:fixed;inset:0;pointer-events:none;background:linear-gradient(rgba(39,230,255,.05) 1px,transparent 1px),linear-gradient(90deg,rgba(39,230,255,.05) 1px,transparent 1px);background-size:44px 44px;mask-image:radial-gradient(ellipse at center,#000 30%,transparent 80%)}
+body::after{content:"";position:fixed;left:0;right:0;height:140px;top:-140px;pointer-events:none;background:linear-gradient(transparent,rgba(39,230,255,.07),transparent);animation:scan 7s linear infinite}
+@keyframes scan{to{transform:translateY(calc(100vh + 280px))}}
+main{position:relative;max-width:1150px;margin:0 auto;padding:26px 16px 40px}
+.hud{display:flex;align-items:center;gap:18px;margin-bottom:14px}
+.orb{width:64px;height:64px;border-radius:50%;flex:none;position:relative;border:2px solid var(--cy);box-shadow:0 0 18px var(--cy),inset 0 0 18px rgba(39,230,255,.5);animation:pulse 3s ease-in-out infinite}
+.orb::before{content:"";position:absolute;inset:9px;border-radius:50%;border:2px dashed var(--bl);animation:spin 9s linear infinite}
+.orb::after{content:"";position:absolute;inset:23px;border-radius:50%;background:radial-gradient(#fff,var(--cy) 60%,transparent 70%)}
+@keyframes spin{to{transform:rotate(360deg)}}@keyframes pulse{50%{box-shadow:0 0 30px var(--cy),inset 0 0 26px rgba(39,230,255,.8)}}
+h1{font:700 24px/1.1 Orbitron,sans-serif;letter-spacing:.14em;margin:0;color:#fff;text-shadow:0 0 14px rgba(39,230,255,.7)}
+h2{font:500 12px Orbitron,sans-serif;letter-spacing:.16em;margin:0 0 10px;color:var(--cy)}
+p.s{color:var(--mut);margin:2px 0 0;font-size:14px}p.intro{margin:12px 0 18px}
+.g{display:grid;grid-template-columns:repeat(auto-fit,minmax(270px,1fr));gap:14px}
+.card,.dz{position:relative;background:var(--pn);border:1px solid var(--ln);border-radius:4px;padding:16px;margin-top:14px;backdrop-filter:blur(6px);box-shadow:0 0 22px rgba(39,230,255,.07),inset 0 0 30px rgba(39,230,255,.04)}
+.g .dz{margin-top:0}
+.card::before,.dz::before{content:"";position:absolute;top:-1px;left:-1px;width:14px;height:14px;border-top:2px solid var(--cy);border-left:2px solid var(--cy)}
+.card::after,.dz::after{content:"";position:absolute;bottom:-1px;right:-1px;width:14px;height:14px;border-bottom:2px solid var(--cy);border-right:2px solid var(--cy)}
+.dz{text-align:center;cursor:pointer;border-style:dashed;transition:border-color .2s,box-shadow .2s}
+.dz:hover{border-color:var(--cy);box-shadow:0 0 26px rgba(39,230,255,.25)}
+.dz.ok{border-style:solid;border-color:var(--ok);box-shadow:0 0 22px rgba(61,255,176,.25)}
+.dz b{display:block;margin-bottom:4px;font:500 13px Orbitron,sans-serif;letter-spacing:.12em;color:var(--cy)}.dz.ok b{color:var(--ok)}
+.dz span{color:var(--mut);font-size:13px;word-break:break-all}
+input[type=file]{display:none}
+.bar{display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin:16px 0}
+button{font:600 13px Orbitron,sans-serif;letter-spacing:.1em;color:#02121c;background:linear-gradient(135deg,var(--cy),var(--bl));border:0;border-radius:3px;padding:11px 20px;cursor:pointer;box-shadow:0 0 16px rgba(39,230,255,.45);transition:transform .15s,box-shadow .15s}
+button:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 0 28px rgba(39,230,255,.8)}
+button.o{background:transparent;color:var(--cy);border:1px solid var(--cy);box-shadow:none}
+button:disabled{opacity:.35;cursor:not-allowed;box-shadow:none}
+button:focus-visible,select:focus-visible,input:focus-visible+*,.dz:focus-within{outline:2px solid var(--am);outline-offset:2px}
+#msg{color:var(--mut)}#msg.er{color:var(--er)}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chips label{background:rgba(39,230,255,.06);border:1px solid var(--ln);border-radius:3px;padding:4px 12px;cursor:pointer;font-size:14px;user-select:none;transition:all .15s}
+.chips label:hover{border-color:var(--cy)}
+.chips input{display:none}
+.chips label:has(input:checked){background:var(--cy);color:#02121c;border-color:var(--cy);box-shadow:0 0 14px rgba(39,230,255,.6);font-weight:700}
+.row{display:flex;gap:18px;flex-wrap:wrap;align-items:center}
+select,input[type=text]{background:rgba(2,12,22,.9);color:var(--tx);border:1px solid var(--ln);border-radius:3px;padding:7px 10px;font:500 14px Rajdhani,sans-serif}
+.kp{display:flex;gap:12px;flex-wrap:wrap}
+.kp div{border:1px solid var(--ln);border-left:3px solid var(--cy);background:rgba(39,230,255,.05);padding:6px 14px;font-size:13px;color:var(--mut);min-width:84px}
+.kp b{display:block;font:700 20px Orbitron,sans-serif;color:#fff;text-shadow:0 0 10px var(--cy)}
+.w{overflow-x:auto;background:var(--pn);border:1px solid var(--ln);border-radius:4px;margin-top:12px;box-shadow:0 0 22px rgba(39,230,255,.07)}
+table{border-collapse:collapse;width:100%;font-size:13px;text-align:center}
+th,td{border:1px solid rgba(39,230,255,.16);padding:5px 8px;white-space:nowrap}
+th{background:rgba(39,230,255,.14);color:var(--cy);font:500 11px Orbitron,sans-serif;letter-spacing:.06em}
+tbody tr:hover td{background:rgba(39,230,255,.08)}
+td.rf{background:rgba(255,176,46,.16)!important;color:var(--am);font-weight:700;text-shadow:0 0 8px rgba(255,176,46,.5)}
+tr.sp td{border:0;height:10px;background:transparent!important}
+details summary{cursor:pointer;color:var(--cy);font-size:14px;margin-bottom:8px}
+label{cursor:pointer}
+.boot .card,.boot .bar,.boot .w{animation:boot .7s cubic-bezier(.2,.8,.2,1) both}
+.boot .card:nth-child(2){animation-delay:.1s}.boot .card:nth-child(3){animation-delay:.2s}.boot .bar{animation-delay:.3s}.boot .w{animation-delay:.4s}
+@keyframes boot{from{opacity:0;transform:translateY(14px);filter:blur(4px)}}
+#ov{position:fixed;inset:0;z-index:50;display:none;flex-direction:column;align-items:center;justify-content:center;gap:22px;background:rgba(3,10,20,.88);backdrop-filter:blur(8px)}
+#ov.on{display:flex}
+.rx{position:relative;width:170px;height:170px}
+.rx i{position:absolute;border-radius:50%;border:2px solid transparent}
+.rx i:nth-child(1){inset:0;border-top-color:var(--cy);border-bottom-color:var(--cy);animation:spin 1.6s linear infinite;box-shadow:0 0 18px rgba(39,230,255,.4)}
+.rx i:nth-child(2){inset:16px;border:2px dashed var(--bl);animation:spin 5s linear infinite reverse}
+.rx i:nth-child(3){inset:34px;border-left-color:var(--am);border-right-color:var(--am);animation:spin 2.4s linear infinite}
+.rx i:nth-child(4){inset:58px;background:radial-gradient(#fff,var(--cy) 55%,transparent 72%);animation:pulse2 1.2s ease-in-out infinite}
+@keyframes pulse2{50%{transform:scale(.7);opacity:.7}}
+#ph{font:500 13px Orbitron,sans-serif;letter-spacing:.2em;color:var(--cy);min-height:20px;text-align:center}
+#ph::after{content:"_";animation:blink 1s steps(1) infinite}@keyframes blink{50%{opacity:0}}
+.pb{width:min(340px,80vw);height:4px;background:rgba(39,230,255,.15);overflow:hidden}
+.pb i{display:block;width:40%;height:100%;background:linear-gradient(90deg,transparent,var(--cy),transparent);animation:sweep 1.1s ease-in-out infinite}
+@keyframes sweep{from{transform:translateX(-100%)}to{transform:translateX(260%)}}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
+</style></head><body><main>
+<header class="hud"><div class="orb"></div><div><h1>Meeting Status Core</h1><p class="s">Development by Sarfaraz &middot; 03283363738</p></div></header>
+<p class="s intro">Select both Excel files, then filter by status (RF-FOLD, any other status, or complete), customer and lab status, and export a PDF or Excel report. Everything is processed in your browser.</p>
+<div class="g">
+<label class="dz" id="dm"><b>1. MASTER SHEET</b><span id="nm">Select MASTER_SHEET_2026.xlsx</span><input type="file" id="fm" accept=".xlsx,.xlsm,.xls"></label>
+<label class="dz" id="dt"><b>2. MEETING FILE</b><span id="nt">Select MEETING.xlsx (CUSTOMER sheet)</span><input type="file" id="ft" accept=".xlsx,.xlsm,.xls"></label>
+</div>
+<div class="bar"><button id="go" disabled>Load files</button><span id="msg"></span></div>
+<div id="ui" hidden>
+<div class="card"><h2>Select status (parts currently at this status)</h2><div class="chips" id="stc"></div></div>
+<div class="card"><div class="row">
+<div><h2>Lab status</h2><select id="lf"><option value="">All</option><option value="Fold">Fold only (passed)</option><option value="NOTFOLD">Everything except Fold</option><option value="Not Rec">Not Rec</option><option value="Under Testing">Under Testing</option><option value="Not in Master">Not in Master</option><option value="Already">Already Dispatched</option></select></div>
+<div><h2>Design / customer search</h2><input type="text" id="qs" placeholder="e.g. EF484 or HAFIZ"></div>
+<label style="margin-top:18px"><input type="checkbox" id="la"> Show lab status for all parts</label></div>
+<details style="margin-top:12px"><summary>Customer filter (none selected = all customers)</summary><div class="chips" id="cuc"></div></details></div>
+<div class="card"><div class="kp" id="kp"></div></div>
+<div class="bar"><button id="pdf">Download PDF</button><button id="xl" class="o">Download Excel</button><span id="cnt"></span></div>
+<div class="w" id="out"></div>
+</div>
+<p class="s" style="text-align:center;margin-top:28px">Development by Sarfaraz &middot; 03283363738</p>
+</main>
+<div id="ov"><div class="rx"><i></i><i></i><i></i><i></i></div><div id="ph">INITIALIZING</div><div class="pb"><i></i></div></div>
+<script>
+const $=id=>document.getElementById(id);
+const PARTS=['SHIRT','DUPATTA','TROUSER'];
+const P=[[11,12,14],[19,20,22],[27,28,30]];
+const ALIAS=[['IDEAS',['IDEAS']],['ZAR TEX',['ZAR TEX']],['RAZA',['REHMAN','RAZA']],['BONANZA',['BONANZA']],['BIN SAEED FAHAD',['EBRAHIM','FAHAD']],['KHAADI',['KHAADI','WEAVES']],['AL-KARAM',['AL-KARAM']],['HAFIZ',['HAFIZ']],['BILAL ZAKIR',['BILAL']],['NARKINS',['NARKINS']],['SALEEM LALA',['SALEEM']],['U&I',['U & I','U&I']]];
+const MON=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const nd=x=>x==null?'':String(x).replace(/[\s\-_\/\.]/g,'').toUpperCase();
+const cl=x=>{if(x==null)return'';const s=String(x).replace(/\s+/g,' ').trim().toUpperCase();return(s===''||s==='-')?'':s};
+const dt=v=>{if(v==null||v==='')return null;const d=typeof v==='number'?new Date(Math.round((v-25569)*864e5)):new Date(v);return isNaN(d)?null:d};
+const fd=d=>d.getUTCDate()+'-'+MON[d.getUTCMonth()]+'-'+String(d.getUTCFullYear()).slice(2);
+const title=s=>s.toLowerCase().replace(/\b\w/g,c=>c.toUpperCase());
+const fq=v=>typeof v==='number'?v.toLocaleString('en-US'):(v==null?'':String(v));
+const esc=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;');
+let F={m:null,t:null},R=[],idx=null,sel=new Set(),allS=false,custSel=new Set(),view=null;
+function pick(k,n,b){$('f'+k).onchange=e=>{const f=e.target.files[0];if(!f)return;F[k]=f;$(n).textContent=f.name;$(b).classList.add('ok');$('go').disabled=!(F.m&&F.t)}}
+pick('m','nm','dm');pick('t','nt','dt');
+const read=(f,pref)=>new Promise((res,rej)=>{const r=new FileReader();r.onerror=()=>rej(new Error('Could not read the file'));r.onload=()=>{try{const wb=XLSX.read(new Uint8Array(r.result),{type:'array'});const n=wb.SheetNames.find(x=>x.trim().toUpperCase()===pref)||wb.SheetNames[0];res(XLSX.utils.sheet_to_json(wb.Sheets[n],{header:1,raw:true,defval:null}))}catch(e){rej(e)}};r.readAsArrayBuffer(f)});
+function lab(design,part,cust,color){
+  let c=idx.get(nd(design)+'|'+part);if(!c)return'Not in Master';
+  const up=cust.toUpperCase();
+  for(const[k,t]of ALIAS){if(up.includes(k)){const f=c.filter(e=>t.some(x=>e.mc.includes(x)));if(f.length)c=f;break}}
+  if(color&&c.length>1){const f=c.filter(e=>e.cc===cl(color));if(f.length)c=f}
+  const fin=c.filter(e=>e.d2);
+  if(fin.length){const r=fin[0];
+    if(r.d2==='PASS'&&r.n2==='FOLD'){const ds=fin.map(e=>e.rep).filter(Boolean);const mx=ds.length?new Date(Math.max(...ds)):null;return'Fold '+(mx?fd(mx):'')}
+    if(r.d2.includes('DISPATCH'))return'Already Dispatched';
+    if(r.d2==='IN')return'Under Testing';
+    return title(r.d2+(r.n2?' - '+r.n2:''))}
+  return c.some(e=>e.rec)?'Under Testing':'Not Rec';
+}
+let phT=null;const PH=['READING MASTER SHEET','INDEXING DESIGNS','READING MEETING FILE','MATCHING LAB STATUS','BUILDING REPORT'];
+function busy(on){const o=$('ov');o.classList.toggle('on',on);clearInterval(phT);if(on){let i=0;$('ph').textContent=PH[0];phT=setInterval(()=>{i=(i+1)%PH.length;$('ph').textContent=PH[i]},900)}}
+const L=(r,j)=>{const p=r.parts[j];if(p.lab===undefined)p.lab=lab(r.g,PARTS[j],r.cust,r.col);return p.lab};
+$('go').onclick=async()=>{
+  const msg=$('msg');msg.className='';msg.textContent='Processing...';$('go').disabled=true;busy(true);await new Promise(r=>setTimeout(r,80));
+  try{
+    const[M,T]=await Promise.all([read(F.m,'SHEET1'),read(F.t,'CUSTOMER')]);
+    idx=new Map();
+    for(let i=1;i<M.length;i++){const r=M[i];if(!r)continue;const v=String(r[7]??'').trim().toUpperCase();if(!PARTS.includes(v))continue;
+      const k=nd(r[5])+'|'+v;if(!idx.has(k))idx.set(k,[]);
+      idx.get(k).push({mc:String(r[3]??'').toUpperCase(),cc:cl(r[6]),d2:cl(r[32]),n2:cl(r[33]),rep:dt(r[28]),rec:r[26]!=null&&r[26]!==''})}
+    if(!idx.size)throw new Error('No SHIRT/DUPATTA/TROUSER rows found in the master sheet. Is this the right file?');
+    R=[];let cust=null;const sc=new Map(),cc=new Map();
+    for(let i=3;i<T.length;i++){const r=T[i]||[];if(r[4])cust=String(r[4]).replace(/\s+/g,' ').trim();const g=r[6];if(!g||!cust)continue;
+      let col=r[7];col=(col==null||col==='-'||col==='')?null:String(col);
+      const parts=P.map(p=>({gw:r[p[0]],qty:r[p[1]],st:String(r[p[2]]??'').trim()}));
+      if(!parts.some(p=>p.st))continue;
+      parts.forEach(p=>{if(p.st){const u=p.st.toUpperCase();sc.set(u,(sc.get(u)||0)+1)}});
+      cc.set(cust,(cc.get(cust)||0)+1);
+      R.push({cust,g,col,design:String(g)+(col?' ('+col+')':''),parts})}
+    if(!R.length)throw new Error('No rows with a status found in the meeting file.');
+    sel=new Set(sc.has('RF-FOLD')?['RF-FOLD']:[]);allS=!sel.size;custSel=new Set();
+    let h='<label><input type="checkbox" id="sall"'+(allS?' checked':'')+'>ALL (complete)</label>';
+    [...sc].sort((a,b)=>b[1]-a[1]).forEach(([s,n])=>{h+='<label><input type="checkbox" class="sc" value="'+esc(s)+'"'+(sel.has(s)?' checked':'')+'>'+esc(s)+' ('+n+')</label>'});
+    $('stc').innerHTML=h;
+    $('cuc').innerHTML=[...cc].map(([c,n])=>'<label><input type="checkbox" class="cc" value="'+esc(c)+'">'+esc(c)+' ('+n+')</label>').join('');
+    $('sall').onchange=e=>{allS=e.target.checked;document.querySelectorAll('.sc').forEach(x=>{if(allS)x.checked=false});sel=new Set(allS?[]:[...document.querySelectorAll('.sc:checked')].map(x=>x.value));draw()};
+    document.querySelectorAll('.sc').forEach(x=>x.onchange=()=>{sel=new Set([...document.querySelectorAll('.sc:checked')].map(x=>x.value));if(sel.size){allS=false;$('sall').checked=false}draw()});
+    document.querySelectorAll('.cc').forEach(x=>x.onchange=()=>{custSel=new Set([...document.querySelectorAll('.cc:checked')].map(x=>x.value));draw()});
+    $('lf').onchange=draw;$('la').onchange=draw;$('qs').oninput=draw;
+    $('ui').hidden=false;$('ui').classList.remove('boot');void $('ui').offsetWidth;$('ui').classList.add('boot');msg.textContent=R.length+' design rows loaded';draw();await new Promise(r=>setTimeout(r,450));
+  }catch(e){msg.className='er';msg.textContent='Error: '+e.message}
+  busy(false);$('go').disabled=!(F.m&&F.t);
+};
+const H=['SR NO','CUSTOMER','Design Name','G.W','Qty','Status','Shirt Lab status','G.W','Qty','Status','Dupatta Lab status','G.W','Qty','Status','Trouser Lab status'];
+const mp=p=>p.st&&(allS||sel.has(p.st.toUpperCase()));
+function compute(){
+  const lf=$('lf').value,q=$('qs').value.trim().toUpperCase(),la=$('la').checked||allS;
+  const groups=new Map(),S={n:0,m:0,lab:{},st:{},rows:0};
+  for(const r of R){
+    if(custSel.size&&!custSel.has(r.cust))continue;
+    if(q&&!(r.design+' '+r.cust).toUpperCase().includes(q))continue;
+    const mj=[0,1,2].filter(j=>mp(r.parts[j]));if(!mj.length)continue;
+    if(lf&&!mj.some(j=>{const l=L(r,j);return lf==='NOTFOLD'?!l.startsWith('Fold'):l.startsWith(lf)}))continue;
+    mj.forEach(j=>{const p=r.parts[j],l=L(r,j),k=l.startsWith('Fold')?'Fold':l;S.n++;if(typeof p.qty==='number')S.m+=p.qty;S.lab[k]=(S.lab[k]||0)+1;const u=p.st.toUpperCase();S.st[u]=(S.st[u]||0)+1});
+    const c=[r.design],h=[];
+    r.parts.forEach((p,j)=>{const m=mp(p);h.push(m&&!allS);c.push(p.st?fq(p.gw):'',p.st?fq(p.qty):'',p.st,p.st&&(m||la)?L(r,j):'')});
+    if(!groups.has(r.cust))groups.set(r.cust,[]);groups.get(r.cust).push({c,h});S.rows++}
+  const body=[],hl=[];
+  for(const[cu,rows]of groups){rows.forEach((o,i)=>{body.push([i+1,cu,...o.c]);hl.push(o.h)});body.push(null);hl.push(null)}
+  body.pop();hl.pop();return{body,hl,S};
+}
+function draw(){
+  view=compute();const{body,S}=view;
+  let h='<table><thead><tr>'+H.map(x=>'<th>'+x+'</th>').join('')+'</tr></thead><tbody>';
+  body.forEach((r,i)=>{if(!r){h+='<tr class="sp"><td colspan="15"></td></tr>';return}
+    h+='<tr>'+r.map((v,j)=>'<td'+(((j==5||j==9||j==13)&&view.hl[i][(j-5)/4])?' class="rf"':'')+'>'+esc(v)+'</td>').join('')+'</tr>'});
+  $('out').innerHTML=h+'</tbody></table>';
+  const lk=Object.entries(S.lab).sort((a,b)=>b[1]-a[1]);
+  $('kp').innerHTML='<div><b>'+S.rows+'</b>rows</div><div><b>'+S.n+'</b>entries</div><div><b>'+Math.round(S.m).toLocaleString('en-US')+'</b>meters</div>'+lk.map(([k,n])=>'<div><b>'+n+'</b>'+esc(k)+'</div>').join('');
+  $('cnt').textContent='';$('pdf').disabled=$('xl').disabled=!S.rows;
+}
+const ttl=()=>'MEETING STATUS - '+(allS?'ALL':[...sel].join(', '));
+const dstr=()=>{const d=new Date();return d.getDate()+'-'+MON[d.getMonth()]+'-'+String(d.getFullYear()).slice(2)};
+$('pdf').onclick=()=>{
+  const{body,hl}=view,ds=dstr();
+  const doc=new window.jspdf.jsPDF({orientation:'landscape',unit:'pt',format:'a4'});
+  doc.setFont('helvetica','bold');doc.setFontSize(12);doc.text(ttl()+'  |  '+ds,28,28);doc.setFontSize(9);doc.text('Prepared by Sarfaraz',doc.internal.pageSize.getWidth()-28,28,{align:'right'});
+  const b=body.map(r=>r||new Array(15).fill(''));
+  const cs={0:{cellWidth:28},1:{cellWidth:92},2:{cellWidth:82}};[3,7,11].forEach(i=>cs[i]={cellWidth:24});[4,8,12].forEach(i=>cs[i]={cellWidth:34});[5,6,9,10,13,14].forEach(i=>cs[i]={cellWidth:62});
+  doc.autoTable({head:[H],body:b,startY:38,theme:'grid',margin:{left:28,right:28,bottom:28},
+    styles:{font:'helvetica',fontSize:6.5,halign:'center',valign:'middle',cellPadding:2,lineColor:[150,150,150],lineWidth:.4,textColor:20},
+    headStyles:{fillColor:[189,215,238],textColor:20,fontStyle:'bold'},columnStyles:cs,
+    didDrawPage:d=>{doc.setFont('helvetica','normal');doc.setFontSize(7);doc.setTextColor(100);doc.text('Prepared by Sarfaraz',28,doc.internal.pageSize.getHeight()-14);doc.text('Page '+d.pageNumber,doc.internal.pageSize.getWidth()-28,doc.internal.pageSize.getHeight()-14,{align:'right'});doc.setTextColor(0)},
+    didParseCell:h=>{if(h.section!=='body')return;const i=h.row.index,r=body[i];
+      if(!r){h.cell.styles.fillColor=[255,255,255];h.cell.styles.lineWidth=0;h.cell.styles.minCellHeight=6;return}
+      if([1,2,5,6,9,10,13,14].includes(h.column.index))h.cell.styles.fontStyle='bold';
+      if([5,9,13].includes(h.column.index)&&hl[i][(h.column.index-5)/4])h.cell.styles.fillColor=[255,242,204]}});
+  doc.save('Meeting_'+(allS?'ALL':[...sel].join('_'))+'_'+ds+'.pdf');
+};
+$('xl').onclick=()=>{
+  const{body}=view,aoa=[[ttl()+' | '+dstr()],[],H,...body.map(r=>r||[])];
+  const ws=XLSX.utils.aoa_to_sheet(aoa);ws['!cols']=[6,26,24,5,8,17,17,5,8,17,17,5,8,17,17].map(w=>({wch:w}));
+  const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Report');
+  XLSX.writeFile(wb,'Meeting_'+(allS?'ALL':[...sel].join('_'))+'_'+dstr()+'.xlsx');
+};
+</script></body></html>
